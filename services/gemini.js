@@ -2,7 +2,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export async function generateNewYearFortune() {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Safely check for process to avoid ReferenceError in browser
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+  
+  if (!apiKey) {
+    console.warn("API Key not found in process.env. Falling back to static fortunes.");
+    return "";
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

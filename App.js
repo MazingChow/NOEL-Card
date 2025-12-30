@@ -23,8 +23,15 @@ const App = () => {
   const audioRef = useRef(null);
 
   const fetchFortune = useCallback(async () => {
+    // Immediately set a random static one so the user isn't waiting on a blank card
+    const randomFallback = STATIC_FORTUNES[Math.floor(Math.random() * STATIC_FORTUNES.length)];
+    setFortune(randomFallback);
+    
+    // Then try to get an AI one
     const aiFortune = await generateNewYearFortune();
-    setFortune(aiFortune || STATIC_FORTUNES[Math.floor(Math.random() * STATIC_FORTUNES.length)]);
+    if (aiFortune) {
+      setFortune(aiFortune);
+    }
   }, []);
 
   const handleResults = useCallback((results) => {
@@ -65,11 +72,13 @@ const App = () => {
   const startApp = () => {
     setIsPlaying(true);
     setTrackingStatus('searching');
-    const hands = new window.Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-    hands.onResults(handleResults);
-    handsRef.current = hands;
-    if (videoRef.current) {
+    if (window.Hands) {
+      const hands = new window.Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+      hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+      hands.onResults(handleResults);
+      handsRef.current = hands;
+    }
+    if (videoRef.current && window.Camera) {
       const camera = new window.Camera(videoRef.current, {
         onFrame: async () => { if (handsRef.current) await handsRef.current.send({ image: videoRef.current }); },
         width: 640, height: 480
@@ -79,7 +88,7 @@ const App = () => {
   };
 
   return html`
-    <div className="relative w-screen h-screen bg-[#050505] overflow-hidden">
+    <div className="relative w-screen h-screen bg-[#050505] overflow-hidden flex items-center justify-center">
       <${WinterScene} theme=${THEMES[currentThemeIdx]} gesture=${gesture} />
       <${UIOverlay} 
         isPlaying=${isPlaying} 
