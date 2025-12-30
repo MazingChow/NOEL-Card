@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import htm from 'htm';
 import { THEMES, STATIC_FORTUNES } from './constants';
-import { GestureType, Theme } from './types';
+import { GestureType } from './types';
 import WinterScene from './components/WinterScene';
 import UIOverlay from './components/UIOverlay';
 import FortuneCard from './components/FortuneCard';
 import { generateNewYearFortune } from './services/gemini';
 
-// Declarations for window globals
+const html = htm.bind(React.createElement);
 declare const Hands: any;
 declare const Camera: any;
 
@@ -26,38 +27,24 @@ const App: React.FC = () => {
 
   const fetchFortune = useCallback(async () => {
     const aiFortune = await generateNewYearFortune();
-    if (aiFortune) {
-      setFortune(aiFortune);
-    } else {
-      setFortune(STATIC_FORTUNES[Math.floor(Math.random() * STATIC_FORTUNES.length)]);
-    }
+    setFortune(aiFortune || STATIC_FORTUNES[Math.floor(Math.random() * STATIC_FORTUNES.length)]);
   }, []);
 
   const handleResults = useCallback((results: any) => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       setTrackingStatus('tracking');
       const landmarks = results.multiHandLandmarks[0];
-      
       const isIndexUp = landmarks[8].y < landmarks[6].y;
       const isMiddleUp = landmarks[12].y < landmarks[10].y;
-      const isRingDown = landmarks[16].y > landmarks[14].y;
-      const isPinkyDown = landmarks[20].y > landmarks[18].y;
-      const pinchDist = Math.sqrt(
-        Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
-        Math.pow(landmarks[4].y - landmarks[8].y, 2)
-      );
+      const pinchDist = Math.sqrt(Math.pow(landmarks[4].x - landmarks[8].x, 2) + Math.pow(landmarks[4].y - landmarks[8].y, 2));
 
-      const isV = isIndexUp && isMiddleUp && isRingDown && isPinkyDown;
-      const isPinch = pinchDist < 0.08;
-
-      if (isV) {
-        const now = Date.now();
-        if (now - lastThemeSwitchRef.current > 1500) {
+      if (isIndexUp && isMiddleUp && landmarks[16].y > landmarks[14].y) {
+        if (Date.now() - lastThemeSwitchRef.current > 1500) {
           setCurrentThemeIdx(prev => (prev + 1) % THEMES.length);
-          lastThemeSwitchRef.current = now;
+          lastThemeSwitchRef.current = Date.now();
         }
         setGesture('V');
-      } else if (isPinch) {
+      } else if (pinchDist < 0.08) {
         setGesture('PINCH');
       } else {
         setGesture('OPEN');
@@ -75,70 +62,42 @@ const App: React.FC = () => {
     } else if (gesture === 'OPEN' && isCardVisible) {
       setIsCardVisible(false);
     }
-
-    if (gesture !== 'NONE' && audioRef.current && audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
-    }
+    if (gesture !== 'NONE' && audioRef.current?.paused) audioRef.current.play().catch(() => {});
   }, [gesture, isCardVisible, fetchFortune]);
 
   const startApp = () => {
     setIsPlaying(true);
     setTrackingStatus('searching');
-
-    const hands = new Hands({
-      locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.7
-    });
-
+    const hands = new Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
     hands.onResults(handleResults);
     handsRef.current = hands;
-
     if (videoRef.current) {
       const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          if (handsRef.current) {
-            await handsRef.current.send({ image: videoRef.current });
-          }
-        },
-        width: 640,
-        height: 480
+        onFrame: async () => { if (handsRef.current) await handsRef.current.send({ image: videoRef.current }); },
+        width: 640, height: 480
       });
       camera.start();
     }
   };
 
-  return (
+  return html`
     <div className="relative w-screen h-screen bg-[#050505] overflow-hidden">
-      <WinterScene 
-        theme={THEMES[currentThemeIdx]} 
-        gesture={gesture} 
+      <${WinterScene} theme=${THEMES[currentThemeIdx]} gesture=${gesture} />
+      <${UIOverlay} 
+        isPlaying=${isPlaying} 
+        trackingStatus=${trackingStatus} 
+        gesture=${gesture} 
+        themeName=${THEMES[currentThemeIdx].name}
+        onStart=${startApp} 
       />
-      
-      <UIOverlay 
-        isPlaying={isPlaying} 
-        trackingStatus={trackingStatus} 
-        gesture={gesture} 
-        themeName={THEMES[currentThemeIdx].name}
-        onStart={startApp} 
-      />
-
-      <FortuneCard 
-        isVisible={isCardVisible} 
-        text={fortune} 
-      />
-
-      <video ref={videoRef} className="hidden" playsInline muted />
-      <audio ref={audioRef} loop>
+      <${FortuneCard} isVisible=${isCardVisible} text=${fortune} />
+      <video ref=${videoRef} className="hidden" playsInline muted />
+      <audio ref=${audioRef} loop>
         <source src="https://upload.wikimedia.org/wikipedia/commons/c/c8/Erik_Satie_-_Gymnopedie_No_1.ogg" type="audio/ogg" />
       </audio>
     </div>
-  );
+  `;
 };
 
 export default App;
