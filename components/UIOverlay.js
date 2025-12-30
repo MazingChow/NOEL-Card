@@ -15,7 +15,6 @@ const UIOverlay = ({ isPlaying, trackingStatus, gesture, themeName, isMuted, onT
         
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-4 pointer-events-auto">
-            <!-- 音乐开关按钮 -->
             <button 
               onClick=${onToggleMusic} 
               className="group relative flex items-center justify-center w-8 h-8 rounded-full border border-[#d4af37]/30 bg-black/20 backdrop-blur-md transition-all active:scale-90 hover:border-[#d4af37]/60"
@@ -36,7 +35,6 @@ const UIOverlay = ({ isPlaying, trackingStatus, gesture, themeName, isMuted, onT
               `}
             </button>
 
-            <!-- 状态指示灯 -->
             <div className="flex items-center gap-2">
               <div className=${`w-1.5 h-1.5 rounded-full ${trackingStatus === 'tracking' ? 'bg-green-500 animate-pulse' : trackingStatus === 'searching' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} />
               <span className="text-[9px] tracking-widest uppercase text-gray-500">${trackingStatus.toUpperCase()}</span>
@@ -49,16 +47,16 @@ const UIOverlay = ({ isPlaying, trackingStatus, gesture, themeName, isMuted, onT
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-50 pointer-events-auto">
           <div className="text-center">
             <div className="loader ease-linear rounded-full border-2 border-t-2 border-[#d4af37] h-10 w-10 mb-6 animate-spin mx-auto"></div>
-            <h2 className="text-[#d4af37] tracking-[0.5em] mb-4 font-zh text-lg">沉浸式圣诞夜</h2>
-            <p className="text-gray-500 text-[10px] tracking-widest mb-8 uppercase px-4">请开启相机权限以进行手势交互</p>
-            <button onClick=${onStart} className="px-10 py-3 border border-[#d4af37]/50 text-[#d4af37] hover:bg-[#d4af37] hover:text-black transition-all tracking-widest uppercase text-[10px] active:scale-95">开启交互</button>
+            <h2 className="text-[#d4af37] tracking-[0.5em] mb-4 font-zh text-lg">圣诞夜启示录</h2>
+            <p className="text-gray-500 text-[10px] tracking-widest mb-8 uppercase px-4">建议佩戴耳机，点击开启声色体验</p>
+            <button onClick=${onStart} className="px-10 py-3 border border-[#d4af37]/50 text-[#d4af37] hover:bg-[#d4af37] hover:text-black transition-all tracking-widest uppercase text-[10px] active:scale-95 shadow-[0_0_20px_rgba(212,175,55,0.2)]">开启交互</button>
           </div>
         </div>
       `}
 
       <div className="w-full text-center opacity-40 pb-4">
         <p className="text-[9px] tracking-[0.4em] uppercase text-gray-400 font-zh">
-          ${gesture === 'NONE' ? '等待手势指令...' : gesture === 'V' ? `切换至主题: ${themeName}` : gesture === 'PINCH' ? '唤起岁末之灵...' : '感应中...'}
+          ${gesture === 'NONE' ? '等待手势指令...' : gesture === 'V' ? `切换主题 / 主题: ${themeName}` : gesture === 'PINCH' ? '唤起岁末之灵...' : '感应中...'}
         </p>
       </div>
     </div>

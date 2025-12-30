@@ -9,9 +9,13 @@ import { generateNewYearFortune } from './services/gemini.js';
 
 const html = htm.bind(React.createElement);
 
-const SFX = {
-  THEME_SWITCH: 'https://assets.mixkit.co/sfx/preview/mixkit-magical-shimmer-600.mp3',
-  REVEAL: 'https://assets.mixkit.co/sfx/preview/mixkit-spell-cast-shimmer-3108.mp3',
+// 选用加载速度极快且风格契合的 CDN 资源
+const AUDIO_ASSETS = {
+  // 坂本龙一风格钢琴曲 (Merry Christmas Mr. Lawrence Style)
+  BGM: 'https://assets.mixkit.co/music/preview/mixkit-christmas-magic-piano-617.mp3',
+  // 交互反馈音效
+  DING: 'https://assets.mixkit.co/sfx/preview/mixkit-simple-notification-ding-1589.mp3',
+  REVEAL: 'https://assets.mixkit.co/sfx/preview/mixkit-magical-shimmer-600.mp3',
   DISMISS: 'https://assets.mixkit.co/sfx/preview/mixkit-modern-technology-select-3124.mp3'
 };
 
@@ -29,21 +33,31 @@ const App = () => {
   const lastThemeSwitchRef = useRef(0);
   const prevGestureRef = useRef('NONE');
   const audioRef = useRef(null);
-  const sfxRef = useRef({
-    theme: new Audio(SFX.THEME_SWITCH),
-    reveal: new Audio(SFX.REVEAL),
-    dismiss: new Audio(SFX.DISMISS)
-  });
+  
+  // 预加载音效池
+  const sfxPool = useRef(null);
 
-  const playSFX = (type) => {
-    if (isMuted) return; // 静音状态下不播放音效
-    const sound = sfxRef.current[type];
+  useEffect(() => {
+    // 初始化音效实例
+    sfxPool.current = {
+      ding: new Audio(AUDIO_ASSETS.DING),
+      reveal: new Audio(AUDIO_ASSETS.REVEAL),
+      dismiss: new Audio(AUDIO_ASSETS.DISMISS)
+    };
+    // 预设音量
+    Object.values(sfxPool.current).forEach(audio => {
+      audio.volume = 0.5;
+    });
+  }, []);
+
+  const playSFX = useCallback((type) => {
+    if (isMuted || !sfxPool.current) return;
+    const sound = sfxPool.current[type];
     if (sound) {
       sound.currentTime = 0;
-      sound.volume = 0.4;
-      sound.play().catch(() => {});
+      sound.play().catch(e => console.warn("SFX play failed:", e));
     }
-  };
+  }, [isMuted]);
 
   const toggleMusic = () => {
     const nextMuted = !isMuted;
@@ -65,7 +79,7 @@ const App = () => {
     
     const aiFortune = await generateNewYearFortune();
     if (aiFortune) setFortune(aiFortune);
-  }, [isMuted]);
+  }, [playSFX]);
 
   const handleResults = useCallback((results) => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -75,11 +89,12 @@ const App = () => {
       const isMiddleUp = landmarks[12].y < landmarks[10].y;
       const pinchDist = Math.sqrt(Math.pow(landmarks[4].x - landmarks[8].x, 2) + Math.pow(landmarks[4].y - landmarks[8].y, 2));
 
+      // 手势 V：切换主题
       if (isIndexUp && isMiddleUp && landmarks[16].y > landmarks[14].y) {
         if (Date.now() - lastThemeSwitchRef.current > 1500) {
           setCurrentThemeIdx(prev => (prev + 1) % THEMES.length);
           lastThemeSwitchRef.current = Date.now();
-          playSFX('theme');
+          playSFX('ding'); // 核心反馈：切换主题时的“叮”声
         }
         setGesture('V');
       } else if (pinchDist < 0.1) {
@@ -91,7 +106,7 @@ const App = () => {
       setTrackingStatus('searching');
       setGesture('NONE');
     }
-  }, [isMuted]);
+  }, [playSFX]);
 
   useEffect(() => {
     if (gesture !== prevGestureRef.current) {
@@ -103,15 +118,20 @@ const App = () => {
       }
       prevGestureRef.current = gesture;
     }
-
-    if (!isMuted && gesture !== 'NONE' && audioRef.current?.paused) {
-      audioRef.current.play().catch(() => {});
-    }
-  }, [gesture, isCardVisible, triggerFortune, isMuted]);
+  }, [gesture, isCardVisible, triggerFortune, playSFX]);
 
   const startApp = () => {
     setIsPlaying(true);
     setTrackingStatus('searching');
+    
+    // 关键修复：在用户点击按钮的第一时间触发音频播放
+    if (audioRef.current) {
+      audioRef.current.volume = 0.6;
+      audioRef.current.play().catch(err => {
+        console.error("Audio play failed on start:", err);
+      });
+    }
+
     if (window.Hands) {
       const hands = new window.Hands({ 
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` 
@@ -125,6 +145,7 @@ const App = () => {
       hands.onResults(handleResults);
       handsRef.current = hands;
     }
+    
     if (videoRef.current && window.Camera) {
       const camera = new window.Camera(videoRef.current, {
         onFrame: async () => { 
@@ -152,7 +173,7 @@ const App = () => {
       <${FortuneCard} isVisible=${isCardVisible} text=${fortune} />
       <video ref=${videoRef} className="hidden" playsInline muted />
       <audio ref=${audioRef} loop preload="auto">
-        <source src="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3" type="audio/mpeg" />
+        <source src=${AUDIO_ASSETS.BGM} type="audio/mpeg" />
       </audio>
     </div>
   `;
