@@ -9,7 +9,6 @@ import { generateNewYearFortune } from './services/gemini.js';
 
 const html = htm.bind(React.createElement);
 
-// 音效素材配置（采用极速加载的 CDN）
 const SFX = {
   THEME_SWITCH: 'https://assets.mixkit.co/sfx/preview/mixkit-magical-shimmer-600.mp3',
   REVEAL: 'https://assets.mixkit.co/sfx/preview/mixkit-spell-cast-shimmer-3108.mp3',
@@ -23,6 +22,7 @@ const App = () => {
   const [fortune, setFortune] = useState('');
   const [isCardVisible, setIsCardVisible] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState('off');
+  const [isMuted, setIsMuted] = useState(false);
 
   const videoRef = useRef(null);
   const handsRef = useRef(null);
@@ -35,8 +35,8 @@ const App = () => {
     dismiss: new Audio(SFX.DISMISS)
   });
 
-  // 播放交互音效的辅助函数
   const playSFX = (type) => {
+    if (isMuted) return; // 静音状态下不播放音效
     const sound = sfxRef.current[type];
     if (sound) {
       sound.currentTime = 0;
@@ -45,15 +45,27 @@ const App = () => {
     }
   };
 
+  const toggleMusic = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (audioRef.current) {
+      if (nextMuted) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  };
+
   const triggerFortune = useCallback(async () => {
     const randomIdx = Math.floor(Math.random() * STATIC_FORTUNES.length);
     setFortune(STATIC_FORTUNES[randomIdx]);
     setIsCardVisible(true);
-    playSFX('reveal'); // 播放开启音效
+    playSFX('reveal');
     
     const aiFortune = await generateNewYearFortune();
     if (aiFortune) setFortune(aiFortune);
-  }, []);
+  }, [isMuted]);
 
   const handleResults = useCallback((results) => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -67,7 +79,7 @@ const App = () => {
         if (Date.now() - lastThemeSwitchRef.current > 1500) {
           setCurrentThemeIdx(prev => (prev + 1) % THEMES.length);
           lastThemeSwitchRef.current = Date.now();
-          playSFX('theme'); // 播放切换主题音效
+          playSFX('theme');
         }
         setGesture('V');
       } else if (pinchDist < 0.1) {
@@ -79,24 +91,23 @@ const App = () => {
       setTrackingStatus('searching');
       setGesture('NONE');
     }
-  }, []);
+  }, [isMuted]);
 
   useEffect(() => {
-    // 仅在手势发生真正变化时处理状态
     if (gesture !== prevGestureRef.current) {
       if (gesture === 'PINCH' && !isCardVisible) {
         triggerFortune();
       } else if (gesture === 'OPEN' && isCardVisible) {
         setIsCardVisible(false);
-        playSFX('dismiss'); // 播放关闭音效
+        playSFX('dismiss');
       }
       prevGestureRef.current = gesture;
     }
 
-    if (gesture !== 'NONE' && audioRef.current?.paused) {
+    if (!isMuted && gesture !== 'NONE' && audioRef.current?.paused) {
       audioRef.current.play().catch(() => {});
     }
-  }, [gesture, isCardVisible, triggerFortune]);
+  }, [gesture, isCardVisible, triggerFortune, isMuted]);
 
   const startApp = () => {
     setIsPlaying(true);
@@ -134,6 +145,8 @@ const App = () => {
         trackingStatus=${trackingStatus} 
         gesture=${gesture} 
         themeName=${THEMES[currentThemeIdx].name}
+        isMuted=${isMuted}
+        onToggleMusic=${toggleMusic}
         onStart=${startApp} 
       />
       <${FortuneCard} isVisible=${isCardVisible} text=${fortune} />
