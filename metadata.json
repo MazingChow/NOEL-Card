@@ -1,0 +1,7 @@
+{
+  "name": "Noël: Gesture Oracle",
+  "description": "An immersive, AI-enhanced Christmas experience using 3D particle systems and hand gesture recognition to reveal winter fortunes.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
