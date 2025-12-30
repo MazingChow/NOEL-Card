@@ -1,9 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export async function generateNewYearFortune(): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -25,6 +24,6 @@ export async function generateNewYearFortune(): Promise<string> {
     return data.fortune;
   } catch (error) {
     console.error("Gemini failed, using fallback", error);
-    return ""; // Will trigger fallback in component
+    return ""; 
   }
 }

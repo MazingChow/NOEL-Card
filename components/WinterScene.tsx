@@ -3,6 +3,15 @@ import React, { useEffect, useRef } from 'react';
 import { Theme, GestureType } from '../types';
 
 declare const THREE: any;
+declare const gsap: any;
+
+const P_COUNT = 6500;
+const THEME_TO_IDX: Record<string, number> = {
+  'Classic Gold': 0,
+  'Crystal Snow': 1,
+  'Midnight Aurora': 2,
+  'Royal Ruby': 3
+};
 
 interface WinterSceneProps {
   theme: Theme;
@@ -11,20 +20,18 @@ interface WinterSceneProps {
 
 const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<any>(null);
   const treeRef = useRef<any>(null);
-  const composerRef = useRef<any>(null);
   const bloomRef = useRef<any>(null);
   const posTargetsRef = useRef<Float32Array | null>(null);
 
-  const P_COUNT = 6500;
-
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || typeof THREE === 'undefined') {
+      console.warn("THREE.js not loaded yet or container missing.");
+      return;
+    }
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050505, 0.003);
-    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 35);
@@ -46,14 +53,12 @@ const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
     const composer = new THREE.EffectComposer(renderer);
     composer.addPass(renderScene);
     composer.addPass(bloomPass);
-    composerRef.current = composer;
 
     // Particle Geometry
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(P_COUNT * 3);
+    const initialPositions = new Float32Array(P_COUNT * 3);
     const colors = new Float32Array(P_COUNT * 3);
 
-    const initialPositions = new Float32Array(P_COUNT * 3);
     for (let i = 0; i < P_COUNT * 3; i++) {
       initialPositions[i] = (Math.random() - 0.5) * 60;
       colors[i] = 1.0;
@@ -84,7 +89,7 @@ const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
 
     let time = 0;
     const animate = () => {
-      requestAnimationFrame(animate);
+      const requestID = requestAnimationFrame(animate);
       time += 0.01;
 
       if (treeRef.current && posTargetsRef.current) {
@@ -105,20 +110,27 @@ const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
       }
 
       composer.render();
+      return requestID;
     };
-    animate();
+    const animID = animate();
 
     return () => {
       window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(animID);
       renderer.dispose();
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
   }, []);
 
   // Update particle targets based on theme
   useEffect(() => {
+    if (!treeRef.current) return;
+    
     const targets = new Float32Array(P_COUNT * 3);
     const h = 35;
-    const themeIdx = THEME_TO_IDX[theme.name];
+    const themeIdx = THEME_TO_IDX[theme.name] ?? 0;
 
     for (let i = 0; i < P_COUNT; i++) {
       const i3 = i * 3;
@@ -147,12 +159,11 @@ const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
     }
     posTargetsRef.current = targets;
 
-    // Smooth color change
-    if (treeRef.current) {
+    // Smooth color change with GSAP check
+    if (treeRef.current && typeof gsap !== 'undefined') {
       const targetColor = new THREE.Color(theme.color);
       const colorAttr = treeRef.current.geometry.attributes.color;
       for (let i = 0; i < P_COUNT; i++) {
-        // @ts-ignore
         gsap.to(colorAttr.array, {
           [i * 3]: targetColor.r,
           [i * 3 + 1]: targetColor.g,
@@ -164,14 +175,7 @@ const WinterScene: React.FC<WinterSceneProps> = ({ theme, gesture }) => {
     }
   }, [theme]);
 
-  const THEME_TO_IDX: Record<string, number> = {
-    'Classic Gold': 0,
-    'Crystal Snow': 1,
-    'Midnight Aurora': 2,
-    'Royal Ruby': 3
-  };
-
-  return <div ref={containerRef} className="absolute inset-0 z-0" />;
+  return <div ref={containerRef} className="absolute inset-0 z-0 bg-black" />;
 };
 
 export default WinterScene;
