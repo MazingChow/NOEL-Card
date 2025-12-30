@@ -9,6 +9,13 @@ import { generateNewYearFortune } from './services/gemini.js';
 
 const html = htm.bind(React.createElement);
 
+// 音效素材配置（采用极速加载的 CDN）
+const SFX = {
+  THEME_SWITCH: 'https://assets.mixkit.co/sfx/preview/mixkit-magical-shimmer-600.mp3',
+  REVEAL: 'https://assets.mixkit.co/sfx/preview/mixkit-spell-cast-shimmer-3108.mp3',
+  DISMISS: 'https://assets.mixkit.co/sfx/preview/mixkit-modern-technology-select-3124.mp3'
+};
+
 const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [gesture, setGesture] = useState('NONE');
@@ -20,22 +27,32 @@ const App = () => {
   const videoRef = useRef(null);
   const handsRef = useRef(null);
   const lastThemeSwitchRef = useRef(0);
+  const prevGestureRef = useRef('NONE');
   const audioRef = useRef(null);
+  const sfxRef = useRef({
+    theme: new Audio(SFX.THEME_SWITCH),
+    reveal: new Audio(SFX.REVEAL),
+    dismiss: new Audio(SFX.DISMISS)
+  });
+
+  // 播放交互音效的辅助函数
+  const playSFX = (type) => {
+    const sound = sfxRef.current[type];
+    if (sound) {
+      sound.currentTime = 0;
+      sound.volume = 0.4;
+      sound.play().catch(() => {});
+    }
+  };
 
   const triggerFortune = useCallback(async () => {
-    // 1. Pick a random static one immediately
     const randomIdx = Math.floor(Math.random() * STATIC_FORTUNES.length);
-    const initialFortune = STATIC_FORTUNES[randomIdx];
-    
-    // 2. Set the text AND show the card at the same time
-    setFortune(initialFortune);
+    setFortune(STATIC_FORTUNES[randomIdx]);
     setIsCardVisible(true);
+    playSFX('reveal'); // 播放开启音效
     
-    // 3. Try to upgrade to an AI fortune in the background
     const aiFortune = await generateNewYearFortune();
-    if (aiFortune) {
-      setFortune(aiFortune);
-    }
+    if (aiFortune) setFortune(aiFortune);
   }, []);
 
   const handleResults = useCallback((results) => {
@@ -50,9 +67,10 @@ const App = () => {
         if (Date.now() - lastThemeSwitchRef.current > 1500) {
           setCurrentThemeIdx(prev => (prev + 1) % THEMES.length);
           lastThemeSwitchRef.current = Date.now();
+          playSFX('theme'); // 播放切换主题音效
         }
         setGesture('V');
-      } else if (pinchDist < 0.08) {
+      } else if (pinchDist < 0.1) {
         setGesture('PINCH');
       } else {
         setGesture('OPEN');
@@ -64,11 +82,17 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (gesture === 'PINCH' && !isCardVisible) {
-      triggerFortune();
-    } else if (gesture === 'OPEN' && isCardVisible) {
-      setIsCardVisible(false);
+    // 仅在手势发生真正变化时处理状态
+    if (gesture !== prevGestureRef.current) {
+      if (gesture === 'PINCH' && !isCardVisible) {
+        triggerFortune();
+      } else if (gesture === 'OPEN' && isCardVisible) {
+        setIsCardVisible(false);
+        playSFX('dismiss'); // 播放关闭音效
+      }
+      prevGestureRef.current = gesture;
     }
+
     if (gesture !== 'NONE' && audioRef.current?.paused) {
       audioRef.current.play().catch(() => {});
     }
@@ -78,15 +102,25 @@ const App = () => {
     setIsPlaying(true);
     setTrackingStatus('searching');
     if (window.Hands) {
-      const hands = new window.Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-      hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+      const hands = new window.Hands({ 
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` 
+      });
+      hands.setOptions({ 
+        maxNumHands: 1, 
+        modelComplexity: 0, 
+        minDetectionConfidence: 0.55, 
+        minTrackingConfidence: 0.55 
+      });
       hands.onResults(handleResults);
       handsRef.current = hands;
     }
     if (videoRef.current && window.Camera) {
       const camera = new window.Camera(videoRef.current, {
-        onFrame: async () => { if (handsRef.current) await handsRef.current.send({ image: videoRef.current }); },
-        width: 640, height: 480
+        onFrame: async () => { 
+          if (handsRef.current) await handsRef.current.send({ image: videoRef.current }); 
+        },
+        width: 320, 
+        height: 240
       });
       camera.start();
     }
@@ -104,8 +138,8 @@ const App = () => {
       />
       <${FortuneCard} isVisible=${isCardVisible} text=${fortune} />
       <video ref=${videoRef} className="hidden" playsInline muted />
-      <audio ref=${audioRef} loop>
-        <source src="https://upload.wikimedia.org/wikipedia/commons/c/c8/Erik_Satie_-_Gymnopedie_No_1.ogg" type="audio/ogg" />
+      <audio ref=${audioRef} loop preload="auto">
+        <source src="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3" type="audio/mpeg" />
       </audio>
     </div>
   `;
