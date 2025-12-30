@@ -22,12 +22,16 @@ const App = () => {
   const lastThemeSwitchRef = useRef(0);
   const audioRef = useRef(null);
 
-  const fetchFortune = useCallback(async () => {
-    // Immediately set a random static one so the user isn't waiting on a blank card
-    const randomFallback = STATIC_FORTUNES[Math.floor(Math.random() * STATIC_FORTUNES.length)];
-    setFortune(randomFallback);
+  const triggerFortune = useCallback(async () => {
+    // 1. Pick a random static one immediately
+    const randomIdx = Math.floor(Math.random() * STATIC_FORTUNES.length);
+    const initialFortune = STATIC_FORTUNES[randomIdx];
     
-    // Then try to get an AI one
+    // 2. Set the text AND show the card at the same time
+    setFortune(initialFortune);
+    setIsCardVisible(true);
+    
+    // 3. Try to upgrade to an AI fortune in the background
     const aiFortune = await generateNewYearFortune();
     if (aiFortune) {
       setFortune(aiFortune);
@@ -61,13 +65,14 @@ const App = () => {
 
   useEffect(() => {
     if (gesture === 'PINCH' && !isCardVisible) {
-      fetchFortune();
-      setIsCardVisible(true);
+      triggerFortune();
     } else if (gesture === 'OPEN' && isCardVisible) {
       setIsCardVisible(false);
     }
-    if (gesture !== 'NONE' && audioRef.current?.paused) audioRef.current.play().catch(() => {});
-  }, [gesture, isCardVisible, fetchFortune]);
+    if (gesture !== 'NONE' && audioRef.current?.paused) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [gesture, isCardVisible, triggerFortune]);
 
   const startApp = () => {
     setIsPlaying(true);

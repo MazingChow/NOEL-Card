@@ -2,11 +2,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export async function generateNewYearFortune() {
-  // Safely check for process to avoid ReferenceError in browser
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+  // Ultra-safe check for browser environment
+  let apiKey = '';
+  try {
+    apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+  } catch (e) {
+    apiKey = '';
+  }
   
   if (!apiKey) {
-    console.warn("API Key not found in process.env. Falling back to static fortunes.");
+    console.log("No API key available, using high-quality local fortunes.");
     return "";
   }
 

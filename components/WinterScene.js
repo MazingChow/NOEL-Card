@@ -26,6 +26,8 @@ const WinterScene = ({ theme, gesture }) => {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.margin = 'auto';
     containerRef.current.appendChild(renderer.domElement);
 
     const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.0, 0.4, 0.85);
@@ -44,6 +46,14 @@ const WinterScene = ({ theme, gesture }) => {
     const tree = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.85 }));
     scene.add(tree);
     treeRef.current = tree;
+
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
 
     let time = 0;
     const animate = () => {
@@ -65,7 +75,11 @@ const WinterScene = ({ theme, gesture }) => {
       return id;
     };
     const animID = animate();
-    return () => { cancelAnimationFrame(animID); renderer.dispose(); };
+    return () => { 
+      cancelAnimationFrame(animID); 
+      window.removeEventListener('resize', handleResize);
+      renderer.dispose(); 
+    };
   }, []);
 
   useEffect(() => {
@@ -93,7 +107,7 @@ const WinterScene = ({ theme, gesture }) => {
     }
   }, [theme]);
 
-  return html`<div ref=${containerRef} className="absolute inset-0 z-0 bg-black" />`;
+  return html`<div ref=${containerRef} className="absolute inset-0 z-0 bg-black flex items-center justify-center overflow-hidden" />`;
 };
 
 export default WinterScene;
